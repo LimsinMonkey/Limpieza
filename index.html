@@ -16,72 +16,59 @@ button{margin:6px;padding:6px 14px}
 
 <script>
 
-// ===== 人员（可改）=====
 let men=["NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS"];
 let women=["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"];
 
 let stats={};
 let lastH=null,lastM=null;
 
-// 初始化统计
 function initStats(){
 [...men,...women].forEach(n=>{
 if(!stats[n]) stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
 }
 
-// 添加员工
 function addStaff(){
-let n=prompt("输入名字").toUpperCase();
+let n=prompt("名字").toUpperCase();
 let g=prompt("men 或 women");
 if(g==="men") men.push(n);
 else women.push(n);
-alert("已添加："+n);
 }
 
-// 删除员工
 function removeStaff(){
-let n=prompt("输入离职员工").toUpperCase();
+let n=prompt("删除谁").toUpperCase();
 men=men.filter(x=>x!==n);
 women=women.filter(x=>x!==n);
 delete stats[n];
-alert("已删除："+n);
 }
 
-// 生成公平排班（核心算法）
 function auto(){
 
 initStats();
-
 let table=document.getElementById("tabla");
 
-// 先统计已手动填写的天数（锁定）
+// 读取已手动填写（锁定）
 for(let d=1;d<=24;d++){
 let r=table.rows[d];
 if(r.cells[1].innerText!==""){
-let c1=r.cells[1].innerText;
-let c2=r.cells[2].innerText;
-let s1=r.cells[3].innerText;
-let s2=r.cells[4].innerText;
-let h=r.cells[5].innerText;
-let m=r.cells[6].innerText;
+let c1=r.cells[1].innerText,c2=r.cells[2].innerText;
+let s1=r.cells[3].innerText,s2=r.cells[4].innerText;
+let h=r.cells[5].innerText,m=r.cells[6].innerText;
 
-if(stats[c1]){stats[c1].cocina++;stats[c1].total++;}
-if(stats[c2]){stats[c2].cocina++;stats[c2].total++;}
-if(stats[s1]){stats[s1].salon++;stats[s1].total++;}
-if(stats[s2]){stats[s2].salon++;stats[s2].total++;}
+[c1,c2].forEach(p=>{if(stats[p]){stats[p].cocina++;stats[p].total++;}});
+[s1,s2].forEach(p=>{if(stats[p]){stats[p].salon++;stats[p].total++;}});
 if(stats[h]){stats[h].h++;stats[h].total++;lastH=h;}
 if(stats[m]){stats[m].m++;stats[m].total++;lastM=m;}
 }
 }
 
-// 从头重新平衡（未填的）
+// 自动排剩余
 for(let d=1;d<=24;d++){
 
 let r=table.rows[d];
 if(r.cells[1].innerText!=="") continue;
 
-// ===== 厕所（最少次数 + 禁止连续）=====
+// ===== 厕所轮换 =====
 let h=men.filter(x=>x!==lastH).sort((a,b)=>stats[a].h-stats[b].h)[0];
 let m=women.filter(x=>x!==lastM).sort((a,b)=>stats[a].m-stats[b].m)[0];
 
@@ -89,18 +76,38 @@ stats[h].h++; stats[h].total++;
 stats[m].m++; stats[m].total++;
 lastH=h; lastM=m;
 
-// ===== 其余岗位（总次数最少优先）=====
 let used=[h,m];
 let all=[...men,...women];
-let avail=all.filter(x=>!used.includes(x))
-.sort((a,b)=>stats[a].total-stats[b].total);
 
-let c1=avail[0],c2=avail[1],s1=avail[2],s2=avail[3];
+function score(p,role){
+let s=stats[p].total*3;
+if(role==="cocina") s+=stats[p].cocina*2;
+if(role==="salon") s+=stats[p].salon*2;
 
-stats[c1].cocina++;stats[c1].total++;
-stats[c2].cocina++;stats[c2].total++;
-stats[s1].salon++;stats[s1].total++;
-stats[s2].salon++;stats[s2].total++;
+// 男女混排惩罚
+let maleCount=used.filter(x=>men.includes(x)).length;
+let femaleCount=used.filter(x=>women.includes(x)).length;
+if(men.includes(p)&&maleCount>femaleCount) s+=1;
+if(women.includes(p)&&femaleCount>maleCount) s+=1;
+
+return s;
+}
+
+let avail=all.filter(x=>!used.includes(x));
+
+// Cocina
+let c1=avail.sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
+used.push(c1);
+let c2=avail.filter(x=>x!==c1).sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
+
+// Salon
+let remain=all.filter(x=>!used.includes(x)&&x!==c2);
+let s1=remain.sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
+used.push(s1);
+let s2=remain.filter(x=>x!==s1).sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
+
+[c1,c2].forEach(p=>{stats[p].cocina++;stats[p].total++;});
+[s1,s2].forEach(p=>{stats[p].salon++;stats[p].total++;});
 
 r.cells[1].innerText=c1;
 r.cells[2].innerText=c2;
@@ -113,19 +120,11 @@ r.cells[6].innerText=m;
 renderStats();
 }
 
-// 渲染统计
 function renderStats(){
 
 let html=`<h3>员工累计统计</h3>
 <table>
-<tr>
-<th>姓名</th>
-<th>Cocina</th>
-<th>Salon</th>
-<th>男厕</th>
-<th>女厕</th>
-<th>总次数</th>
-</tr>`;
+<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>男厕</th><th>女厕</th><th>总</th></tr>`;
 
 for(let n in stats){
 let s=stats[n];
@@ -151,7 +150,7 @@ document.getElementById("stats").innerHTML=html;
 
 <h2>AI长期公平排班（24天）</h2>
 
-<button onclick="addStaff()">➕ 添加员工</button> <button onclick="removeStaff()">❌ 删除员工</button> <button onclick="auto()">生成/恢复公平排班</button>
+<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成/恢复公平排班</button>
 
 <div class="flex">
 
