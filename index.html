@@ -1,165 +1,190 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>Fair Scheduler FINAL</title>
+<title>AI公平排班系统 · FINAL</title>
 
 <style>
-body{font-family:Arial;background:#f4f6f8;padding:20px}
+body{font-family:Arial;background:#f5f5f5;padding:20px}
 table{border-collapse:collapse;background:white}
 td,th{border:1px solid #ccc;padding:6px;text-align:center}
-.flex{display:flex;gap:30px}
-button{margin:6px;padding:6px 14px}
+input{width:120px}
+button{margin:4px;padding:6px 10px}
+.box{display:flex;gap:30px;align-items:flex-start}
+h2{margin:6px 0}
+.small{font-size:12px;color:#666}
 </style>
-
-<script>
-
-let men=["NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS"];
-let women=["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"];
-
-let stats,lastH,lastM;
-
-function resetStats(){
-stats={}; lastH=null; lastM=null;
-[...men,...women].forEach(n=>{
-stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
-});
-}
-
-function addStaff(){
-let n=prompt("名字").toUpperCase();
-let g=prompt("men 或 women");
-if(g==="men") men.push(n);
-else women.push(n);
-alert("已添加："+n+" → 点击生成");
-}
-
-function removeStaff(){
-let n=prompt("删除谁").toUpperCase();
-men=men.filter(x=>x!==n);
-women=women.filter(x=>x!==n);
-alert("已删除："+n+" → 点击生成");
-}
-
-function auto(){
-
-resetStats();
-let table=document.getElementById("tabla");
-
-for(let d=1; d<=24; d++){
-
-let r=table.rows[d];
-let absent=document.getElementById("abs"+d).value.toUpperCase().split(",").map(x=>x.trim()).filter(x=>x!="");
-
-// ===== 厕所轮换 =====
-let h=men.filter(x=>x!==lastH && !absent.includes(x))
-.sort((a,b)=>stats[a].h-stats[b].h)[0];
-
-let m=women.filter(x=>x!==lastM && !absent.includes(x))
-.sort((a,b)=>stats[a].m-stats[b].m)[0];
-
-stats[h].h++; stats[h].total++;
-stats[m].m++; stats[m].total++;
-lastH=h; lastM=m;
-
-// ===== 其他岗位 =====
-let used=[h,m];
-let all=[...men,...women].filter(x=>!absent.includes(x));
-
-function score(p,role){
-let s=stats[p].total*3;
-if(role==="cocina") s+=stats[p].cocina*2;
-if(role==="salon") s+=stats[p].salon*2;
-return s;
-}
-
-let avail=all.filter(x=>!used.includes(x));
-
-let c1=avail.sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
-used.push(c1);
-
-let c2=avail.filter(x=>x!==c1).sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
-
-let remain=all.filter(x=>!used.includes(x)&&x!==c2);
-
-let s1=remain.sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
-used.push(s1);
-
-let s2=remain.filter(x=>x!==s1).sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
-
-[c1,c2].forEach(p=>{stats[p].cocina++;stats[p].total++;});
-[s1,s2].forEach(p=>{stats[p].salon++;stats[p].total++;});
-
-r.cells[1].innerText=c1;
-r.cells[2].innerText=c2;
-r.cells[3].innerText=s1;
-r.cells[4].innerText=s2;
-r.cells[5].innerText=h;
-r.cells[6].innerText=m;
-}
-
-renderStats();
-}
-
-function renderStats(){
-let html=`<h3>员工统计</h3>
-<table>
-<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>H</th><th>M</th><th>总</th></tr>`;
-for(let n in stats){
-let s=stats[n];
-html+=`<tr>
-<td>${n}</td>
-<td>${s.cocina}</td>
-<td>${s.salon}</td>
-<td>${s.h}</td>
-<td>${s.m}</td>
-<td>${s.total}</td>
-</tr>`;
-}
-html+="</table>";
-document.getElementById("stats").innerHTML=html;
-}
-
-</script>
-
 </head>
 
 <body>
 
-<h2>公平排班系统（最终稳定版）</h2>
+<h2>AI智能排班系统 · 终极收官版</h2>
 
-<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成排班 / 自动恢复公平</button>
+<button onclick="addEmployee()">添加员工</button>
+<button onclick="removeEmployee()">删除员工</button>
+<button onclick="generate()">生成排班 / 自动恢复公平</button>
+<button onclick="resetAbsent()">清空缺勤</button>
 
-<div class="flex">
+<div class="box">
 
-<table id="tabla">
-<tr>
-<th>Dia</th><th>Cocina1</th><th>Cocina2</th>
-<th>Salon1</th><th>Salon2</th>
-<th>Baño H</th><th>Baño M</th><th>缺勤</th>
-</tr>
+<!-- 排班表 -->
+<div>
+<h3>排班表（长期公平）</h3>
+<table id="schedule"></table>
+</div>
 
-<script>
-for(let i=1;i<=24;i++){
-document.write(`<tr>
-<td>${i}</td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td><input id="abs${i}" placeholder="FRANCO,CAMILO"></td>
-</tr>`);
-}
-</script>
+<!-- 统计 -->
+<div>
+<h3>员工统计（自动公平监控）</h3>
+<table id="stats"></table>
 
-</table>
-
-<div id="stats"></div>
+<h3>缺勤历史</h3>
+<table id="history"></table>
+</div>
 
 </div>
+
+<script>
+/* ========= 基础数据 ========= */
+
+let employees = JSON.parse(localStorage.getItem("emp")||`[
+"NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS",
+"GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"
+]`);
+
+let absent = JSON.parse(localStorage.getItem("absent")||"{}");
+let history = JSON.parse(localStorage.getItem("history")||"[]");
+
+const days = 30;
+
+/* ========= 工具 ========= */
+
+function save(){
+localStorage.setItem("emp",JSON.stringify(employees));
+localStorage.setItem("absent",JSON.stringify(absent));
+localStorage.setItem("history",JSON.stringify(history));
+}
+
+function shuffle(a){
+return a.sort(()=>Math.random()-0.5);
+}
+
+/* ========= 排班核心（真正公平） ========= */
+
+function generate(){
+
+let stats={};
+employees.forEach(e=>stats[e]={c:0,s:0,h:0,m:0,total:0});
+
+let table=`<tr>
+<th>Dia</th>
+<th>Cocina1</th><th>Cocina2</th>
+<th>Salon1</th><th>Salon2</th>
+<th>Baño H</th><th>Baño M</th>
+<th>缺勤</th>
+</tr>`;
+
+for(let d=1;d<=days;d++){
+
+let pool=[...employees];
+let a=(absent[d]||"").split(",").map(x=>x.trim()).filter(x=>x);
+pool=pool.filter(x=>!a.includes(x));
+
+shuffle(pool);
+
+function pick(type){
+pool.sort((x,y)=>stats[x][type]-stats[y][type]);
+let p=pool.shift();
+stats[p][type]++;
+stats[p].total++;
+return p;
+}
+
+let c1=pick("c");
+let c2=pick("c");
+let s1=pick("s");
+let s2=pick("s");
+let h=pick("h");
+let m=pick("m");
+
+table+=`<tr>
+<td>${d}</td>
+<td>${c1}</td><td>${c2}</td>
+<td>${s1}</td><td>${s2}</td>
+<td>${h}</td><td>${m}</td>
+<td><input value="${absent[d]||""}" onchange="setAbsent(${d},this.value)"></td>
+</tr>`;
+}
+
+document.getElementById("schedule").innerHTML=table;
+
+/* ===== 统计表 ===== */
+
+let st=`<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>H</th><th>M</th><th>总</th><th>公平</th></tr>`;
+for(let e of employees){
+let s=stats[e];
+let fairness=Math.round(100-Math.abs(s.c-s.s)*5-Math.abs(s.h-s.m)*5);
+st+=`<tr>
+<td>${e}</td><td>${s.c}</td><td>${s.s}</td>
+<td>${s.h}</td><td>${s.m}</td>
+<td>${s.total}</td><td>${fairness}%</td>
+</tr>`;
+}
+document.getElementById("stats").innerHTML=st;
+
+/* ===== 历史 ===== */
+
+let hhtml=`<tr><th>Dia</th><th>缺勤</th></tr>`;
+history.slice(-20).reverse().forEach(r=>{
+hhtml+=`<tr><td>${r.d}</td><td>${r.a}</td></tr>`;
+});
+document.getElementById("history").innerHTML=hhtml;
+
+save();
+}
+
+/* ========= 缺勤 ========= */
+
+function setAbsent(d,val){
+absent[d]=val;
+history.push({d:d,a:val});
+save();
+generate();
+}
+
+function resetAbsent(){
+if(confirm("清空所有缺勤？")){
+absent={};
+history=[];
+save();
+generate();
+}
+}
+
+/* ========= 员工管理 ========= */
+
+function addEmployee(){
+let n=prompt("输入新员工名字");
+if(!n)return;
+n=n.toUpperCase();
+if(!employees.includes(n)) employees.push(n);
+save();
+generate();
+}
+
+function removeEmployee(){
+let n=prompt("输入离职员工名字");
+if(!n)return;
+n=n.toUpperCase();
+employees=employees.filter(x=>x!==n);
+save();
+generate();
+}
+
+/* ========= 启动 ========= */
+
+generate();
+</script>
 
 </body>
 </html>
