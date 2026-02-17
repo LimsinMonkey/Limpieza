@@ -1,66 +1,54 @@
 <!DOCTYPE html>
 
-<html lang="es">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Scheduler Manager Edition</title>
+<title>Scheduler Business FIX</title>
 
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
 table{border-collapse:collapse;background:white}
 td,th{border:1px solid #ccc;padding:6px;text-align:center}
-td{min-width:90px}
-button{margin:6px;padding:6px 14px}
-.flex{display:flex;gap:30px;align-items:flex-start}
-.locked td[contenteditable]{background:#eee}
+.flex{display:flex;gap:30px}
 </style>
 
 <script>
 
-let ADMIN=false;
-let PASSWORD="1234";
-
 let men=["NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS"];
 let women=["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"];
 
-let stats={};
-let lastH=null,lastM=null;
+let stats,lastH,lastM;
 
-function login(){
-let p=prompt("管理员密码");
-if(p===PASSWORD){
-ADMIN=true;
-document.body.classList.remove("locked");
-alert("进入管理模式");
-}else alert("密码错误");
-}
-
-function initStats(){
+function resetStats(){
+stats={}; lastH=null; lastM=null;
 [...men,...women].forEach(n=>{
-if(!stats[n]) stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
+stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
 }
 
 function auto(){
 
-initStats();
+resetStats();
 let table=document.getElementById("tabla");
 
-for(let d=1;d<=24;d++){
+// ===== 从第1天重新计算（确保缺勤生效）=====
+for(let d=1; d<=24; d++){
+
 let r=table.rows[d];
+let absent=document.getElementById("abs"+d).value.toUpperCase().split(",").map(x=>x.trim()).filter(x=>x!="");
 
-let absent=document.getElementById("abs"+d).value.toUpperCase().split(",").map(x=>x.trim());
-
-let h=men.filter(x=>x!==lastH&&!absent.includes(x))
+// ===== 厕所 =====
+let h=men.filter(x=>x!==lastH && !absent.includes(x))
 .sort((a,b)=>stats[a].h-stats[b].h)[0];
 
-let m=women.filter(x=>x!==lastM&&!absent.includes(x))
+let m=women.filter(x=>x!==lastM && !absent.includes(x))
 .sort((a,b)=>stats[a].m-stats[b].m)[0];
 
-stats[h].h++;stats[h].total++;
-stats[m].m++;stats[m].total++;
-lastH=h;lastM=m;
+stats[h].h++; stats[h].total++;
+stats[m].m++; stats[m].total++;
+lastH=h; lastM=m;
 
+// ===== 其他岗位 =====
 let used=[h,m];
 let all=[...men,...women].filter(x=>!absent.includes(x));
 
@@ -75,16 +63,20 @@ let avail=all.filter(x=>!used.includes(x));
 
 let c1=avail.sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
 used.push(c1);
+
 let c2=avail.filter(x=>x!==c1).sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
 
 let remain=all.filter(x=>!used.includes(x)&&x!==c2);
+
 let s1=remain.sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
 used.push(s1);
+
 let s2=remain.filter(x=>x!==s1).sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
 
 [c1,c2].forEach(p=>{stats[p].cocina++;stats[p].total++;});
 [s1,s2].forEach(p=>{stats[p].salon++;stats[p].total++;});
 
+// ===== 写入表 =====
 r.cells[1].innerText=c1;
 r.cells[2].innerText=c2;
 r.cells[3].innerText=s1;
@@ -96,17 +88,10 @@ r.cells[6].innerText=m;
 renderStats();
 }
 
-function fairness(s){
-let arr=[s.cocina,s.salon,s.h,s.m];
-let avg=arr.reduce((a,b)=>a+b,0)/4;
-let diff=arr.reduce((a,b)=>a+Math.abs(b-avg),0);
-return (100-diff*5).toFixed(0)+"%";
-}
-
 function renderStats(){
 let html=`<h3>员工统计</h3>
 <table>
-<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>H</th><th>M</th><th>总</th><th>公平</th></tr>`;
+<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>H</th><th>M</th><th>总</th></tr>`;
 for(let n in stats){
 let s=stats[n];
 html+=`<tr>
@@ -116,7 +101,6 @@ html+=`<tr>
 <td>${s.h}</td>
 <td>${s.m}</td>
 <td>${s.total}</td>
-<td>${fairness(s)}</td>
 </tr>`;
 }
 html+="</table>";
@@ -127,37 +111,26 @@ document.getElementById("stats").innerHTML=html;
 
 </head>
 
-<body class="locked">
+<body>
 
-<h2>商业版排班系统</h2>
-
-<button onclick="login()">管理员模式</button> <button onclick="auto()">生成公平排班</button>
+<h2>排班系统（缺勤自动重排）</h2>
+<button onclick="auto()">生成 / 重新计算公平排班</button>
 
 <div class="flex">
 
 <table id="tabla">
 <tr>
-<th>Dia</th>
-<th>Cocina1</th>
-<th>Cocina2</th>
-<th>Salon1</th>
-<th>Salon2</th>
-<th>Baño H</th>
-<th>Baño M</th>
-<th>缺勤</th>
+<th>Dia</th><th>Cocina1</th><th>Cocina2</th>
+<th>Salon1</th><th>Salon2</th>
+<th>Baño H</th><th>Baño M</th><th>缺勤</th>
 </tr>
 
 <script>
 for(let i=1;i<=24;i++){
 document.write(`<tr>
 <td>${i}</td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td contenteditable></td>
-<td><input id="abs${i}"></td>
+<td></td><td></td><td></td><td></td><td></td><td></td>
+<td><input id="abs${i}" placeholder="FRANCO,CAMILO"></td>
 </tr>`);
 }
 </script>
