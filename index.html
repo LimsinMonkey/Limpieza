@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>AI Scheduler ULTRA FAIR</title>
+<title>Scheduler Manager Edition</title>
 
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
@@ -12,9 +12,13 @@ td,th{border:1px solid #ccc;padding:6px;text-align:center}
 td{min-width:90px}
 button{margin:6px;padding:6px 14px}
 .flex{display:flex;gap:30px;align-items:flex-start}
+.locked td[contenteditable]{background:#eee}
 </style>
 
 <script>
+
+let ADMIN=false;
+let PASSWORD="1234";
 
 let men=["NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS"];
 let women=["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"];
@@ -22,24 +26,19 @@ let women=["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","
 let stats={};
 let lastH=null,lastM=null;
 
+function login(){
+let p=prompt("管理员密码");
+if(p===PASSWORD){
+ADMIN=true;
+document.body.classList.remove("locked");
+alert("进入管理模式");
+}else alert("密码错误");
+}
+
 function initStats(){
 [...men,...women].forEach(n=>{
 if(!stats[n]) stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
-}
-
-function addStaff(){
-let n=prompt("名字").toUpperCase();
-let g=prompt("men 或 women");
-if(g==="men") men.push(n);
-else women.push(n);
-}
-
-function removeStaff(){
-let n=prompt("删除谁").toUpperCase();
-men=men.filter(x=>x!==n);
-women=women.filter(x=>x!==n);
-delete stats[n];
 }
 
 function auto(){
@@ -47,60 +46,37 @@ function auto(){
 initStats();
 let table=document.getElementById("tabla");
 
-// 读取已手动填写（锁定）
 for(let d=1;d<=24;d++){
 let r=table.rows[d];
-if(r.cells[1].innerText!==""){
-let c1=r.cells[1].innerText,c2=r.cells[2].innerText;
-let s1=r.cells[3].innerText,s2=r.cells[4].innerText;
-let h=r.cells[5].innerText,m=r.cells[6].innerText;
 
-[c1,c2].forEach(p=>{if(stats[p]){stats[p].cocina++;stats[p].total++;}});
-[s1,s2].forEach(p=>{if(stats[p]){stats[p].salon++;stats[p].total++;}});
-if(stats[h]){stats[h].h++;stats[h].total++;lastH=h;}
-if(stats[m]){stats[m].m++;stats[m].total++;lastM=m;}
-}
-}
+let absent=document.getElementById("abs"+d).value.toUpperCase().split(",").map(x=>x.trim());
 
-// 自动排剩余
-for(let d=1;d<=24;d++){
+let h=men.filter(x=>x!==lastH&&!absent.includes(x))
+.sort((a,b)=>stats[a].h-stats[b].h)[0];
 
-let r=table.rows[d];
-if(r.cells[1].innerText!=="") continue;
+let m=women.filter(x=>x!==lastM&&!absent.includes(x))
+.sort((a,b)=>stats[a].m-stats[b].m)[0];
 
-// ===== 厕所轮换 =====
-let h=men.filter(x=>x!==lastH).sort((a,b)=>stats[a].h-stats[b].h)[0];
-let m=women.filter(x=>x!==lastM).sort((a,b)=>stats[a].m-stats[b].m)[0];
-
-stats[h].h++; stats[h].total++;
-stats[m].m++; stats[m].total++;
-lastH=h; lastM=m;
+stats[h].h++;stats[h].total++;
+stats[m].m++;stats[m].total++;
+lastH=h;lastM=m;
 
 let used=[h,m];
-let all=[...men,...women];
+let all=[...men,...women].filter(x=>!absent.includes(x));
 
 function score(p,role){
 let s=stats[p].total*3;
 if(role==="cocina") s+=stats[p].cocina*2;
 if(role==="salon") s+=stats[p].salon*2;
-
-// 男女混排惩罚
-let maleCount=used.filter(x=>men.includes(x)).length;
-let femaleCount=used.filter(x=>women.includes(x)).length;
-if(men.includes(p)&&maleCount>femaleCount) s+=1;
-if(women.includes(p)&&femaleCount>maleCount) s+=1;
-
 return s;
 }
 
 let avail=all.filter(x=>!used.includes(x));
 
-// Cocina
 let c1=avail.sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
 used.push(c1);
 let c2=avail.filter(x=>x!==c1).sort((a,b)=>score(a,"cocina")-score(b,"cocina"))[0];
 
-// Salon
 let remain=all.filter(x=>!used.includes(x)&&x!==c2);
 let s1=remain.sort((a,b)=>score(a,"salon")-score(b,"salon"))[0];
 used.push(s1);
@@ -120,12 +96,17 @@ r.cells[6].innerText=m;
 renderStats();
 }
 
+function fairness(s){
+let arr=[s.cocina,s.salon,s.h,s.m];
+let avg=arr.reduce((a,b)=>a+b,0)/4;
+let diff=arr.reduce((a,b)=>a+Math.abs(b-avg),0);
+return (100-diff*5).toFixed(0)+"%";
+}
+
 function renderStats(){
-
-let html=`<h3>员工累计统计</h3>
+let html=`<h3>员工统计</h3>
 <table>
-<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>男厕</th><th>女厕</th><th>总</th></tr>`;
-
+<tr><th>姓名</th><th>Cocina</th><th>Salon</th><th>H</th><th>M</th><th>总</th><th>公平</th></tr>`;
 for(let n in stats){
 let s=stats[n];
 html+=`<tr>
@@ -135,9 +116,9 @@ html+=`<tr>
 <td>${s.h}</td>
 <td>${s.m}</td>
 <td>${s.total}</td>
+<td>${fairness(s)}</td>
 </tr>`;
 }
-
 html+="</table>";
 document.getElementById("stats").innerHTML=html;
 }
@@ -146,11 +127,11 @@ document.getElementById("stats").innerHTML=html;
 
 </head>
 
-<body>
+<body class="locked">
 
-<h2>AI长期公平排班（24天）</h2>
+<h2>商业版排班系统</h2>
 
-<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成/恢复公平排班</button>
+<button onclick="login()">管理员模式</button> <button onclick="auto()">生成公平排班</button>
 
 <div class="flex">
 
@@ -161,8 +142,9 @@ document.getElementById("stats").innerHTML=html;
 <th>Cocina2</th>
 <th>Salon1</th>
 <th>Salon2</th>
-<th>Baño Hombre</th>
-<th>Baño Mujer</th>
+<th>Baño H</th>
+<th>Baño M</th>
+<th>缺勤</th>
 </tr>
 
 <script>
@@ -175,6 +157,7 @@ document.write(`<tr>
 <td contenteditable></td>
 <td contenteditable></td>
 <td contenteditable></td>
+<td><input id="abs${i}"></td>
 </tr>`);
 }
 </script>
