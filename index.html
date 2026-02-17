@@ -3,13 +3,14 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scheduler Business FIX</title>
+<title>Scheduler Business FULL</title>
 
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
 table{border-collapse:collapse;background:white}
 td,th{border:1px solid #ccc;padding:6px;text-align:center}
 .flex{display:flex;gap:30px}
+button{margin:6px;padding:6px 14px}
 </style>
 
 <script>
@@ -26,18 +27,36 @@ stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
 }
 
+// ===== 添加员工 =====
+function addStaff(){
+let name=prompt("输入名字").toUpperCase();
+let group=prompt("输入分组：men 或 women");
+
+if(group==="men") men.push(name);
+else women.push(name);
+
+alert("已添加："+name+"（点击生成重新平衡）");
+}
+
+// ===== 删除员工 =====
+function removeStaff(){
+let name=prompt("输入离职员工名字").toUpperCase();
+men=men.filter(x=>x!==name);
+women=women.filter(x=>x!==name);
+alert("已删除："+name+"（点击生成重新平衡）");
+}
+
 function auto(){
 
 resetStats();
 let table=document.getElementById("tabla");
 
-// ===== 从第1天重新计算（确保缺勤生效）=====
 for(let d=1; d<=24; d++){
 
 let r=table.rows[d];
 let absent=document.getElementById("abs"+d).value.toUpperCase().split(",").map(x=>x.trim()).filter(x=>x!="");
 
-// ===== 厕所 =====
+// ===== 厕所轮换 =====
 let h=men.filter(x=>x!==lastH && !absent.includes(x))
 .sort((a,b)=>stats[a].h-stats[b].h)[0];
 
@@ -113,8 +132,9 @@ document.getElementById("stats").innerHTML=html;
 
 <body>
 
-<h2>排班系统（缺勤自动重排）</h2>
-<button onclick="auto()">生成 / 重新计算公平排班</button>
+<h2>商业稳定版排班系统</h2>
+
+<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成 / 重新计算公平排班</button>
 
 <div class="flex">
 
