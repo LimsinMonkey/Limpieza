@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Limpieza Scheduler</title>
+<title>Limpieza Scheduler PRO</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -20,7 +21,45 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const staff=[
+"NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS",
+"GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS",
+"VALENTINA","JACQUELINE"
+];
+
+const men=staff.slice(0,6);
+const women=staff.slice(6);
 const days=["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
+
+window.auto=async function(){
+let counts={}; staff.forEach(n=>counts[n]=0);
+let table=document.getElementById("tabla");
+
+for(let i=0;i<6;i++){
+let absent=document.getElementById("d"+i).value.toUpperCase().split(",").map(x=>x.trim());
+
+let bañoH=men.find(x=>!absent.includes(x));
+let bañoM=women.find(x=>!absent.includes(x));
+
+counts[bañoH]++; counts[bañoM]++;
+
+let used=[bañoH,bañoM];
+let avail=staff.filter(p=>!used.includes(p)&&!absent.includes(p));
+avail.sort((a,b)=>counts[a]-counts[b]);
+
+let r=table.rows[i+1];
+r.cells[1].innerText=avail[0];
+r.cells[2].innerText=avail[1];
+r.cells[3].innerText=avail[2];
+r.cells[4].innerText=avail[3];
+r.cells[5].innerText=bañoH;
+r.cells[6].innerText=bañoM;
+
+[avail[0],avail[1],avail[2],avail[3]].forEach(p=>counts[p]++);
+}
+
+guardar();
+}
 
 window.guardar=async function(){
 const table=document.getElementById("tabla");
@@ -38,7 +77,6 @@ mujer:r.cells[6].innerText
 }
 
 await setDoc(doc(db,"scheduler","week"),{data});
-alert("已保存，全店同步");
 }
 
 window.cargar=async function(){
@@ -65,34 +103,40 @@ body{font-family:Arial;background:#f4f6f8;padding:20px}
 table{border-collapse:collapse;background:white}
 td,th{border:1px solid #ccc;padding:8px;text-align:center}
 td{min-width:110px}
-button{padding:8px 16px;margin:10px}
+button{padding:8px 16px;margin:6px}
 </style>
+
 </head>
 
 <body onload="cargar()">
 
-<h2>排班表（在线同步）</h2>
+<h2>AI 自动公平排班</h2>
+
+<table>
+<tr><th>Dia</th><th>Ausentes（缺勤）</th></tr>
+<tr><td>Lunes</td><td><input id="d0"></td></tr>
+<tr><td>Martes</td><td><input id="d1"></td></tr>
+<tr><td>Miercoles</td><td><input id="d2"></td></tr>
+<tr><td>Jueves</td><td><input id="d3"></td></tr>
+<tr><td>Viernes</td><td><input id="d4"></td></tr>
+<tr><td>Sabado</td><td><input id="d5"></td></tr>
+</table>
+
+<button onclick="auto()">自动公平排班</button>
+
+<h3>排班表</h3>
 
 <table id="tabla">
 <tr>
-<th>Dia</th>
-<th>Cocina1</th>
-<th>Cocina2</th>
-<th>Salon1</th>
-<th>Salon2</th>
-<th>Baño Hombre</th>
-<th>Baño Mujer</th>
+<th>Dia</th><th>Cocina1</th><th>Cocina2</th><th>Salon1</th><th>Salon2</th><th>Baño Hombre</th><th>Baño Mujer</th>
 </tr>
-
-<tr><td>Lunes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
-<tr><td>Martes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
-<tr><td>Miercoles</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
-<tr><td>Jueves</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
-<tr><td>Viernes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
-<tr><td>Sabado</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Lunes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Martes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Miercoles</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Jueves</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Viernes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Sabado</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
-
-<button onclick="guardar()">保存排班</button>
 
 </body>
 </html>
