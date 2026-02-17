@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Limpieza Scheduler PRO</title>
+<title>AI Scheduler Enterprise</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -21,79 +21,80 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const staff=[
-"NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS",
-"GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS",
-"VALENTINA","JACQUELINE"
-];
+// ===== 人员数据（可编辑）=====
+let staffData = {
+men:["NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS"],
+women:["GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"]
+};
 
-const men=staff.slice(0,6);
-const women=staff.slice(6);
-const days=["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
-
-window.auto=async function(){
-let counts={}; staff.forEach(n=>counts[n]=0);
-let table=document.getElementById("tabla");
-
-for(let i=0;i<6;i++){
-let absent=document.getElementById("d"+i).value.toUpperCase().split(",").map(x=>x.trim());
-
-let bañoH=men.find(x=>!absent.includes(x));
-let bañoM=women.find(x=>!absent.includes(x));
-
-counts[bañoH]++; counts[bañoM]++;
-
-let used=[bañoH,bañoM];
-let avail=staff.filter(p=>!used.includes(p)&&!absent.includes(p));
-avail.sort((a,b)=>counts[a]-counts[b]);
-
-let r=table.rows[i+1];
-r.cells[1].innerText=avail[0];
-r.cells[2].innerText=avail[1];
-r.cells[3].innerText=avail[2];
-r.cells[4].innerText=avail[3];
-r.cells[5].innerText=bañoH;
-r.cells[6].innerText=bañoM;
-
-[avail[0],avail[1],avail[2],avail[3]].forEach(p=>counts[p]++);
+window.addStaff=function(){
+let name=prompt("输入新员工名字").toUpperCase();
+let group=prompt("输入组：men 或 women");
+if(group==="men") staffData.men.push(name);
+if(group==="women") staffData.women.push(name);
+alert("已添加："+name);
 }
 
-guardar();
+window.removeStaff=function(){
+let name=prompt("输入离职员工名字").toUpperCase();
+staffData.men=staffData.men.filter(x=>x!==name);
+staffData.women=staffData.women.filter(x=>x!==name);
+alert("已删除："+name);
 }
 
-window.guardar=async function(){
-const table=document.getElementById("tabla");
-let data=[];
+// ===== 统计 =====
+let stats={};
 
-for(let i=1;i<=6;i++){
-let r=table.rows[i];
-data.push({
-day:days[i-1],
-cocina:[r.cells[1].innerText,r.cells[2].innerText],
-salon:[r.cells[3].innerText,r.cells[4].innerText],
-hombre:r.cells[5].innerText,
-mujer:r.cells[6].innerText
+function initStats(){
+[...staffData.men,...staffData.women].forEach(n=>{
+if(!stats[n]) stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
 }
 
-await setDoc(doc(db,"scheduler","week"),{data});
+window.auto=function(){
+initStats();
+let men=staffData.men;
+let women=staffData.women;
+let all=[...men,...women];
+
+let table=document.getElementById("tabla");
+
+for(let d=1;d<=24;d++){
+
+let h=men.sort((a,b)=>stats[a].h-stats[b].h)[0];
+let m=women.sort((a,b)=>stats[a].m-stats[b].m)[0];
+
+stats[h].h++; stats[h].total++;
+stats[m].m++; stats[m].total++;
+
+let avail=all.filter(x=>x!==h&&x!==m)
+.sort((a,b)=>stats[a].total-stats[b].total);
+
+let c1=avail[0],c2=avail[1],s1=avail[2],s2=avail[3];
+
+stats[c1].cocina++; stats[c1].total++;
+stats[c2].cocina++; stats[c2].total++;
+stats[s1].salon++; stats[s1].total++;
+stats[s2].salon++; stats[s2].total++;
+
+let r=table.rows[d];
+r.cells[1].innerText=c1;
+r.cells[2].innerText=c2;
+r.cells[3].innerText=s1;
+r.cells[4].innerText=s2;
+r.cells[5].innerText=h;
+r.cells[6].innerText=m;
 }
 
-window.cargar=async function(){
-const snap=await getDoc(doc(db,"scheduler","week"));
-if(!snap.exists()) return;
+renderStats();
+}
 
-const data=snap.data().data;
-const table=document.getElementById("tabla");
-
-for(let i=0;i<data.length;i++){
-let r=table.rows[i+1];
-r.cells[1].innerText=data[i].cocina[0];
-r.cells[2].innerText=data[i].cocina[1];
-r.cells[3].innerText=data[i].salon[0];
-r.cells[4].innerText=data[i].salon[1];
-r.cells[5].innerText=data[i].hombre;
-r.cells[6].innerText=data[i].mujer;
+function renderStats(){
+let div=document.getElementById("stats");
+div.innerHTML="<h3>员工累计统计</h3>";
+for(let k in stats){
+let s=stats[k];
+div.innerHTML+=`${k} → Cocina:${s.cocina} | Salon:${s.salon} | H:${s.h} | M:${s.m} | 总:${s.total}<br>`;
 }
 }
 </script>
@@ -101,42 +102,29 @@ r.cells[6].innerText=data[i].mujer;
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
 table{border-collapse:collapse;background:white}
-td,th{border:1px solid #ccc;padding:8px;text-align:center}
-td{min-width:110px}
-button{padding:8px 16px;margin:6px}
+td,th{border:1px solid #ccc;padding:6px;text-align:center}
+button{margin:5px;padding:6px 12px}
 </style>
 
 </head>
 
-<body onload="cargar()">
+<body>
 
-<h2>AI 自动公平排班</h2>
+<h2>月度AI自平衡排班（24天）</h2>
 
-<table>
-<tr><th>Dia</th><th>Ausentes（缺勤）</th></tr>
-<tr><td>Lunes</td><td><input id="d0"></td></tr>
-<tr><td>Martes</td><td><input id="d1"></td></tr>
-<tr><td>Miercoles</td><td><input id="d2"></td></tr>
-<tr><td>Jueves</td><td><input id="d3"></td></tr>
-<tr><td>Viernes</td><td><input id="d4"></td></tr>
-<tr><td>Sabado</td><td><input id="d5"></td></tr>
-</table>
-
-<button onclick="auto()">自动公平排班</button>
+<button onclick="addStaff()">➕ 添加员工</button> <button onclick="removeStaff()">❌ 删除员工</button> <button onclick="auto()">生成公平排班</button>
 
 <h3>排班表</h3>
-
 <table id="tabla">
-<tr>
-<th>Dia</th><th>Cocina1</th><th>Cocina2</th><th>Salon1</th><th>Salon2</th><th>Baño Hombre</th><th>Baño Mujer</th>
-</tr>
-<tr><td>Lunes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>Martes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>Miercoles</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>Jueves</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>Viernes</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr><td>Sabado</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><th>Dia</th><th>Cocina1</th><th>Cocina2</th><th>Salon1</th><th>Salon2</th><th>Baño Hombre</th><th>Baño Mujer</th></tr>
+<script>
+for(let i=1;i<=24;i++){
+document.write(`<tr><td>${i}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`);
+}
+</script>
 </table>
+
+<div id="stats"></div>
 
 </body>
 </html>
