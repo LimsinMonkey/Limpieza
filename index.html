@@ -3,7 +3,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scheduler Business FULL</title>
+<title>Fair Scheduler FINAL</title>
 
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
@@ -27,23 +27,19 @@ stats[n]={cocina:0,salon:0,h:0,m:0,total:0};
 });
 }
 
-// ===== 添加员工 =====
 function addStaff(){
-let name=prompt("输入名字").toUpperCase();
-let group=prompt("输入分组：men 或 women");
-
-if(group==="men") men.push(name);
-else women.push(name);
-
-alert("已添加："+name+"（点击生成重新平衡）");
+let n=prompt("名字").toUpperCase();
+let g=prompt("men 或 women");
+if(g==="men") men.push(n);
+else women.push(n);
+alert("已添加："+n+" → 点击生成");
 }
 
-// ===== 删除员工 =====
 function removeStaff(){
-let name=prompt("输入离职员工名字").toUpperCase();
-men=men.filter(x=>x!==name);
-women=women.filter(x=>x!==name);
-alert("已删除："+name+"（点击生成重新平衡）");
+let n=prompt("删除谁").toUpperCase();
+men=men.filter(x=>x!==n);
+women=women.filter(x=>x!==n);
+alert("已删除："+n+" → 点击生成");
 }
 
 function auto(){
@@ -95,7 +91,6 @@ let s2=remain.filter(x=>x!==s1).sort((a,b)=>score(a,"salon")-score(b,"salon"))[0
 [c1,c2].forEach(p=>{stats[p].cocina++;stats[p].total++;});
 [s1,s2].forEach(p=>{stats[p].salon++;stats[p].total++;});
 
-// ===== 写入表 =====
 r.cells[1].innerText=c1;
 r.cells[2].innerText=c2;
 r.cells[3].innerText=s1;
@@ -132,9 +127,9 @@ document.getElementById("stats").innerHTML=html;
 
 <body>
 
-<h2>商业稳定版排班系统</h2>
+<h2>公平排班系统（最终稳定版）</h2>
 
-<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成 / 重新计算公平排班</button>
+<button onclick="addStaff()">添加员工</button> <button onclick="removeStaff()">删除员工</button> <button onclick="auto()">生成排班 / 自动恢复公平</button>
 
 <div class="flex">
 
@@ -149,7 +144,12 @@ document.getElementById("stats").innerHTML=html;
 for(let i=1;i<=24;i++){
 document.write(`<tr>
 <td>${i}</td>
-<td></td><td></td><td></td><td></td><td></td><td></td>
+<td contenteditable></td>
+<td contenteditable></td>
+<td contenteditable></td>
+<td contenteditable></td>
+<td contenteditable></td>
+<td contenteditable></td>
 <td><input id="abs${i}" placeholder="FRANCO,CAMILO"></td>
 </tr>`);
 }
