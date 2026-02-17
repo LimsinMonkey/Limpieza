@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -21,66 +20,42 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const staff=[
-"NEHEMIAS","FRANCO","CAMILO","CHANGO","BRAYAN","NICOLAS",
-"GISEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS",
-"VALENTINA","JACQUELINE"
-];
-const men=staff.slice(0,6);
-const women=staff.slice(6);
 const days=["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
 
-window.generar=async function(){
-let counts={}; staff.forEach(n=>counts[n]=0);
-let schedule=[];
+window.guardar=async function(){
+const table=document.getElementById("tabla");
+let data=[];
 
-for(let i=0;i<6;i++){
-let abs=document.getElementById("d"+i).value.toUpperCase();
-let absent=abs?abs.split(",").map(x=>x.trim()):[];
-
-let bañoH=null;
-for(let j=0;j<men.length;j++){
-let c=men[(i+j)%men.length];
-if(!absent.includes(c)){ bañoH=c; break;}
-}
-let bañoM=null;
-for(let j=0;j<women.length;j++){
-let c=women[(i+j)%women.length];
-if(!absent.includes(c)){ bañoM=c; break;}
-}
-
-counts[bañoH]++; counts[bañoM]++;
-let used=[bañoH,bañoM];
-let avail=staff.filter(p=>!used.includes(p)&&!absent.includes(p));
-avail.sort((a,b)=>counts[a]-counts[b]);
-
-let c1=avail[0],c2=avail[1],s1=avail[2],s2=avail[3];
-[c1,c2,s1,s2].forEach(p=>counts[p]++);
-
-schedule.push({
-day:days[i],
-cocina:[c1,c2],
-salon:[s1,s2],
-hombre:bañoH,
-mujer:bañoM
+for(let i=1;i<=6;i++){
+let r=table.rows[i];
+data.push({
+day:days[i-1],
+cocina:[r.cells[1].innerText,r.cells[2].innerText],
+salon:[r.cells[3].innerText,r.cells[4].innerText],
+hombre:r.cells[5].innerText,
+mujer:r.cells[6].innerText
 });
 }
 
-document.getElementById("out").textContent=JSON.stringify(schedule,null,2);
-
-await setDoc(doc(db,"scheduler","week"),{
-data:schedule,
-timestamp:Date.now()
-});
-
-alert("排班已保存（全店实时同步）");
+await setDoc(doc(db,"scheduler","week"),{data});
+alert("已保存，全店同步");
 }
 
 window.cargar=async function(){
 const snap=await getDoc(doc(db,"scheduler","week"));
-if(snap.exists()){
-document.getElementById("out").textContent=
-JSON.stringify(snap.data().data,null,2);
+if(!snap.exists()) return;
+
+const data=snap.data().data;
+const table=document.getElementById("tabla");
+
+for(let i=0;i<data.length;i++){
+let r=table.rows[i+1];
+r.cells[1].innerText=data[i].cocina[0];
+r.cells[2].innerText=data[i].cocina[1];
+r.cells[3].innerText=data[i].salon[0];
+r.cells[4].innerText=data[i].salon[1];
+r.cells[5].innerText=data[i].hombre;
+r.cells[6].innerText=data[i].mujer;
 }
 }
 </script>
@@ -88,32 +63,36 @@ JSON.stringify(snap.data().data,null,2);
 <style>
 body{font-family:Arial;background:#f4f6f8;padding:20px}
 table{border-collapse:collapse;background:white}
-td,th{border:1px solid #ccc;padding:6px 10px;text-align:center}
-input{width:200px}
+td,th{border:1px solid #ccc;padding:8px;text-align:center}
+td{min-width:110px}
 button{padding:8px 16px;margin:10px}
-pre{background:white;padding:10px;border:1px solid #ccc}
 </style>
-
 </head>
 
 <body onload="cargar()">
 
-<h2>排班管理系统（在线实时版）</h2>
+<h2>排班表（在线同步）</h2>
 
-<table>
-<tr><th>Dia</th><th>Ausentes</th></tr>
-<tr><td>Lunes</td><td><input id="d0"></td></tr>
-<tr><td>Martes</td><td><input id="d1"></td></tr>
-<tr><td>Miercoles</td><td><input id="d2"></td></tr>
-<tr><td>Jueves</td><td><input id="d3"></td></tr>
-<tr><td>Viernes</td><td><input id="d4"></td></tr>
-<tr><td>Sabado</td><td><input id="d5"></td></tr>
+<table id="tabla">
+<tr>
+<th>Dia</th>
+<th>Cocina1</th>
+<th>Cocina2</th>
+<th>Salon1</th>
+<th>Salon2</th>
+<th>Baño Hombre</th>
+<th>Baño Mujer</th>
+</tr>
+
+<tr><td>Lunes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Martes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Miercoles</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Jueves</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Viernes</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
+<tr><td>Sabado</td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td><td contenteditable></td></tr>
 </table>
 
-<button onclick="generar()">生成并保存排班</button> <button onclick="cargar()">读取最新排班</button>
-
-<h3>排班结果</h3>
-<pre id="out"></pre>
+<button onclick="guardar()">保存排班</button>
 
 </body>
 </html>
