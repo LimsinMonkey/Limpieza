@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>👑 店长控制系统 · 企业终极版</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* Firebase */
+const firebaseConfig = {
+  apiKey: "AIzaSyBHZU6dHcyLl1MJW2NzEZx4zwpV_spv9Os",
+  authDomain: "limpieza-peron.firebaseapp.com",
+  projectId: "limpieza-peron",
+  storageBucket: "limpieza-peron.firebasestorage.app",
+  messagingSenderId: "542479002690",
+  appId: "1:542479002690:web:33a321a6fa818674f891db"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ===== 系统参数 ===== */
+const DAYS = 30;
+const POSTS = ["C1","C2","S1","S2","H","M"];
+let staff = [];
+let schedule = [];
+let stats = {};
+let history = [];
+let lastPost = {};   // 防止锁岗位
+
+/* ===== 读取员工 ===== */
+async function loadStaff(){
+  const snap = await getDoc(doc(db,"staff","list"));
+  staff = snap.exists() ? snap.data().names : [];
+}
+
+/* ===== 初始化统计 ===== */
+function initStats(){
+  stats = {};
+  staff.forEach(n=>{
+    stats[n]={C:0,S:0,H:0,M:0,total:0};
+    lastPost[n]=null;
+  });
+}
+
+/* ===== 选最公平人 ===== */
+function pick(post){
+  let best=null;
+  let score=9999;
+
+  staff.forEach(n=>{
+    let s=stats[n];
+    let val = post.startsWith("C")?s.C:
+              post.startsWith("S")?s.S:
+              post=="H"?s.H:s.M;
+
+    // 惩罚连续同岗位
+    if(lastPost[n]==post) val+=2;
+
+    if(val<score){
+      score=val;
+      best=n;
+    }
+  });
+  return best;
+}
+
+/* ===== 生成排班 ===== */
+function generate(){
+  schedule=[];
+  initStats();
+
+  for(let d=1;d<=DAYS;d++){
+    let day={};
+    POSTS.forEach(p=>{
+      let name=pick(p);
+      day[p]=name;
+      lastPost[name]=p;
+      stats[name].total++;
+
+      if(p.startsWith("C"))stats[name].C++;
+      if(p.startsWith("S"))stats[name].S++;
+      if(p=="H")stats[name].H++;
+      if(p=="M")stats[name].M++;
+    });
+    schedule.push(day);
+  }
+  render();
+}
+
+/* ===== 缺勤处理（只改单天） ===== */
+function markAbsent(dayIndex,name){
+  let day=schedule[dayIndex];
+  for(let p in day){
+    if(day[p]==name){
+      let replacement=pick(p);
+      day[p]=replacement;
+      history.push({day:dayIndex+1,name});
+      break;
+    }
+  }
+  render();
+}
+
+/* ===== 渲染 ===== */
+function render(){
+  let html="<table border=1><tr><th>Day</th>";
+  POSTS.forEach(p=>html+=`<th>${p}</th>`);
+  html+="<th>缺勤</th></tr>";
+
+  schedule.forEach((d,i)=>{
+    html+=`<tr><td>${i+1}</td>`;
+    POSTS.forEach(p=>html+=`<td>${d[p]}</td>`);
+    html+=`<td><input placeholder="填名字" onchange="abs(${i},this.value)"></td></tr>`;
+  });
+  html+="</table>";
+  document.getElementById("table").innerHTML=html;
+
+  let shtml="<table border=1><tr><th>Name</th><th>C</th><th>S</th><th>H</th><th>M</th><th>Total</th></tr>";
+  for(let n in stats){
+    let s=stats[n];
+    shtml+=`<tr><td>${n}</td><td>${s.C}</td><td>${s.S}</td><td>${s.H}</td><td>${s.M}</td><td>${s.total}</td></tr>`;
+  }
+  shtml+="</table>";
+  document.getElementById("stats").innerHTML=shtml;
+
+  let hhtml="<table border=1><tr><th>Day</th><th>Name</th></tr>";
+  history.forEach(h=>{
+    hhtml+=`<tr><td>${h.day}</td><td>${h.name}</td></tr>`;
+  });
+  hhtml+="</table>";
+  document.getElementById("history").innerHTML=hhtml;
+}
+
+/* ===== 云端保存 ===== */
+async function save(){
+  await setDoc(doc(db,"scheduler","month"),{
+    schedule,stats,history,time:Date.now()
+  });
+  alert("已保存云端");
+}
+
+/* ===== 云端读取 ===== */
+async function load(){
+  const snap=await getDoc(doc(db,"scheduler","month"));
+  if(!snap.exists()) return;
+  const data=snap.data();
+  schedule=data.schedule||[];
+  stats=data.stats||{};
+  history=data.history||[];
+  render();
+}
+
+window.generate=generate;
+window.save=save;
+window.load=load;
+window.abs=markAbsent;
+
+await loadStaff();
+await load();
+</script>
+
+<style>
+body{font-family:Arial;background:#f0f0f0;padding:20px}
+button{margin:5px;padding:8px 15px}
+table{border-collapse:collapse;background:#fff}
+td,th{padding:6px 10px;text-align:center}
+input{width:90px}
+</style>
+
+</head>
+
+<body>
+
+<h2>👑 店长控制系统 · 企业终极版</h2>
+
+<button onclick="generate()">生成30天公平排班</button> <button onclick="save()">保存云端</button> <button onclick="load()">读取云端</button>
+
+<h3>排班表（稳定不乱）</h3>
+<div id="table"></div>
+
+<h3>员工统计（长期公平）</h3>
+<div id="stats"></div>
+
+<h3>缺勤历史</h3>
+<div id="history"></div>
+
+</body>
+</html>
