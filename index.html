@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>店长控制系统 · 企业稳定版</title>
+
+<style>
+body{font-family:Arial;background:#f0f0f0;padding:20px}
+table{border-collapse:collapse;background:#fff}
+td,th{border:1px solid #ccc;padding:6px 10px;text-align:center}
+button{margin:5px;padding:6px 12px}
+input{width:110px}
+.flex{display:flex;gap:30px}
+</style>
+</head>
+
+<body>
+
+<h2>👑 店长控制系统 · 企业稳定版</h2>
+
+<button onclick="generate()">生成排班</button>
+<button onclick="clearAbs()">清空缺勤</button>
+
+<br><br>
+
+<div class="flex">
+
+<!-- 排班表 -->
+<div>
+<h3>排班表（30天）</h3>
+<table id="schedule"></table>
+</div>
+
+<!-- 统计 -->
+<div>
+<h3>员工统计</h3>
+<table id="stats"></table>
+</div>
+
+</div>
+
+<script>
+
+// ===== 员工名单 =====
+let staff = JSON.parse(localStorage.getItem("staff")) || [
+"NEHEMIAS","FRANCO","CAMILO","BRAYAN","CHANGO","NICOLAS",
+"GISSEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"
+];
+
+// ===== 创建表 =====
+function build(){
+  let t=document.getElementById("schedule");
+  t.innerHTML="<tr><th>Day</th><th>C1</th><th>C2</th><th>S1</th><th>S2</th><th>H</th><th>M</th><th>缺勤</th></tr>";
+  for(let d=1; d<=30; d++){
+    t.innerHTML+=`<tr>
+<td>${d}</td>
+<td id="c1-${d}"></td>
+<td id="c2-${d}"></td>
+<td id="s1-${d}"></td>
+<td id="s2-${d}"></td>
+<td id="h-${d}"></td>
+<td id="m-${d}"></td>
+<td><input id="a-${d}" onchange="saveAbs()"></td>
+</tr>`;
+  }
+}
+
+// ===== 生成排班 =====
+function generate(){
+  let history=JSON.parse(localStorage.getItem("his")||"{}");
+  staff.forEach(p=>{if(!history[p])history[p]={c:0,s:0,h:0,m:0};});
+
+  let rot=[...staff];
+
+  for(let d=1; d<=30; d++){
+    let abs=(document.getElementById("a-"+d).value||"").toUpperCase().split(",");
+    let today=rot.filter(p=>!abs.includes(p));
+
+    while(today.length<6) today.push(rot[Math.floor(Math.random()*rot.length)]);
+
+    today.sort((a,b)=>{
+      let ta=history[a].c+history[a].s+history[a].h+history[a].m;
+      let tb=history[b].c+history[b].s+history[b].h+history[b].m;
+      return ta-tb;
+    });
+
+    let p=today.slice(0,6);
+
+    set(d,"c1",p[0]); history[p[0]].c++;
+    set(d,"c2",p[1]); history[p[1]].c++;
+    set(d,"s1",p[2]); history[p[2]].s++;
+    set(d,"s2",p[3]); history[p[3]].s++;
+    set(d,"h",p[4]); history[p[4]].h++;
+    set(d,"m",p[5]); history[p[5]].m++;
+
+    rot.push(rot.shift());
+  }
+
+  localStorage.setItem("his",JSON.stringify(history));
+  renderStats();
+}
+
+// ===== 写格子 =====
+function set(d,r,n){document.getElementById(r+"-"+d).innerText=n;}
+
+// ===== 统计 =====
+function renderStats(){
+  let s=document.getElementById("stats");
+  s.innerHTML="<tr><th>Name</th><th>C</th><th>S</th><th>H</th><th>M</th><th>Total</th></tr>";
+  let his=JSON.parse(localStorage.getItem("his")||"{}");
+
+  staff.forEach(p=>{
+    let d=his[p]||{c:0,s:0,h:0,m:0};
+    let t=d.c+d.s+d.h+d.m;
+    s.innerHTML+=`<tr><td>${p}</td><td>${d.c}</td><td>${d.s}</td><td>${d.h}</td><td>${d.m}</td><td>${t}</td></tr>`;
+  });
+}
+
+// ===== 保存缺勤 =====
+function saveAbs(){
+  let a={};
+  for(let d=1; d<=30; d++) a[d]=document.getElementById("a-"+d).value;
+  localStorage.setItem("abs",JSON.stringify(a));
+}
+
+// ===== 读取缺勤 =====
+function loadAbs(){
+  let a=JSON.parse(localStorage.getItem("abs")||"{}");
+  for(let d=1; d<=30; d++) if(a[d]) document.getElementById("a-"+d).value=a[d];
+}
+
+// ===== 清空 =====
+function clearAbs(){
+  localStorage.removeItem("abs");
+  localStorage.removeItem("his");
+  location.reload();
+}
+
+// ===== 启动 =====
+build();
+loadAbs();
+renderStats();
+
+</script>
+</body>
+</html>
