@@ -1,146 +1,148 @@
 <!DOCTYPE html>
+
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>店长控制系统 · 企业稳定版</title>
+<title>👑 店长控制系统 · 旗舰稳定版</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* Firebase 配置 */
+const firebaseConfig = {
+  apiKey: "AIzaSyBHZU6dHcyLl1MJW2NzEZx4zwpV_spv9Os",
+  authDomain: "limpieza-peron.firebaseapp.com",
+  projectId: "limpieza-peron",
+  storageBucket: "limpieza-peron.firebasestorage.app",
+  messagingSenderId: "542479002690",
+  appId: "1:542479002690:web:33a321a6fa818674f891db"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ======================
+   店长控制系统核心
+====================== */
+
+let staff = [];
+let schedule = [];
+let stats = {};
+let absHistory = [];
+
+const DAYS = 30;
+const POSTS = ["C1","C2","S1","S2","H","M"];
+
+async function loadStaff(){
+  const snap = await getDoc(doc(db,"staff","list"));
+  staff = snap.exists() ? snap.data().names : [];
+}
+
+function initStats(){
+  stats = {};
+  staff.forEach(n=>{
+    stats[n]={C:0,S:0,H:0,M:0,total:0};
+  });
+}
+
+function pickFair(post){
+  let best=null,score=9999;
+  staff.forEach(n=>{
+    let s=stats[n];
+    let val = post=="C1"||post=="C2"?s.C:
+              post=="S1"||post=="S2"?s.S:
+              post=="H"?s.H:s.M;
+    if(val<score){score=val;best=n;}
+  });
+  return best;
+}
+
+function generate(){
+  schedule=[];
+  initStats();
+
+  for(let d=1;d<=DAYS;d++){
+    let day={};
+    POSTS.forEach(p=>{
+      let name=pickFair(p);
+      day[p]=name;
+      stats[name].total++;
+      if(p.startsWith("C"))stats[name].C++;
+      if(p.startsWith("S"))stats[name].S++;
+      if(p=="H")stats[name].H++;
+      if(p=="M")stats[name].M++;
+    });
+    schedule.push(day);
+  }
+  render();
+}
+
+function render(){
+  let html="<table border=1><tr><th>Day</th><th>C1</th><th>C2</th><th>S1</th><th>S2</th><th>H</th><th>M</th></tr>";
+  schedule.forEach((d,i)=>{
+    html+=`<tr><td>${i+1}</td><td>${d.C1}</td><td>${d.C2}</td><td>${d.S1}</td><td>${d.S2}</td><td>${d.H}</td><td>${d.M}</td></tr>`;
+  });
+  html+="</table>";
+  document.getElementById("table").innerHTML=html;
+
+  let statHtml="<table border=1><tr><th>Name</th><th>C</th><th>S</th><th>H</th><th>M</th><th>Total</th></tr>";
+  for(let n in stats){
+    let s=stats[n];
+    statHtml+=`<tr><td>${n}</td><td>${s.C}</td><td>${s.S}</td><td>${s.H}</td><td>${s.M}</td><td>${s.total}</td></tr>`;
+  }
+  statHtml+="</table>";
+  document.getElementById("stats").innerHTML=statHtml;
+}
+
+async function save(){
+  await setDoc(doc(db,"scheduler","month"),{
+    schedule,
+    stats,
+    absHistory,
+    time:Date.now()
+  });
+  alert("已保存到云端");
+}
+
+async function load(){
+  const snap=await getDoc(doc(db,"scheduler","month"));
+  if(!snap.exists()) return;
+  const data=snap.data();
+  schedule=data.schedule||[];
+  stats=data.stats||{};
+  absHistory=data.absHistory||[];
+  render();
+}
+
+window.generate=generate;
+window.save=save;
+window.load=load;
+
+await loadStaff();
+await load();
+</script>
 
 <style>
-body{font-family:Arial;background:#f0f0f0;padding:20px}
-table{border-collapse:collapse;background:#fff}
-td,th{border:1px solid #ccc;padding:6px 10px;text-align:center}
-button{margin:5px;padding:6px 12px}
-input{width:110px}
-.flex{display:flex;gap:30px}
+body{font-family:Arial;background:#f4f4f4;padding:20px}
+button{margin:5px;padding:8px 16px}
+table{border-collapse:collapse;background:white}
+td,th{padding:6px 10px;text-align:center}
 </style>
+
 </head>
 
 <body>
 
-<h2>👑 店长控制系统 · 企业稳定版</h2>
+<h2>👑 店长控制系统 · 旗舰稳定版</h2>
 
-<button onclick="generate()">生成排班</button>
-<button onclick="clearAbs()">清空缺勤</button>
+<button onclick="generate()">生成30天公平排班</button> <button onclick="save()">保存云端</button> <button onclick="load()">读取云端</button>
 
-<br><br>
+<h3>排班表</h3>
+<div id="table"></div>
 
-<div class="flex">
+<h3>员工统计（自动公平）</h3>
+<div id="stats"></div>
 
-<!-- 排班表 -->
-<div>
-<h3>排班表（30天）</h3>
-<table id="schedule"></table>
-</div>
-
-<!-- 统计 -->
-<div>
-<h3>员工统计</h3>
-<table id="stats"></table>
-</div>
-
-</div>
-
-<script>
-
-// ===== 员工名单 =====
-let staff = JSON.parse(localStorage.getItem("staff")) || [
-"NEHEMIAS","FRANCO","CAMILO","BRAYAN","CHANGO","NICOLAS",
-"GISSEL","DAMARIS","PRISCILA","ABRIL","TANIA","MILAGROS","VALENTINA","JACQUELINE"
-];
-
-// ===== 创建表 =====
-function build(){
-  let t=document.getElementById("schedule");
-  t.innerHTML="<tr><th>Day</th><th>C1</th><th>C2</th><th>S1</th><th>S2</th><th>H</th><th>M</th><th>缺勤</th></tr>";
-  for(let d=1; d<=30; d++){
-    t.innerHTML+=`<tr>
-<td>${d}</td>
-<td id="c1-${d}"></td>
-<td id="c2-${d}"></td>
-<td id="s1-${d}"></td>
-<td id="s2-${d}"></td>
-<td id="h-${d}"></td>
-<td id="m-${d}"></td>
-<td><input id="a-${d}" onchange="saveAbs()"></td>
-</tr>`;
-  }
-}
-
-// ===== 生成排班 =====
-function generate(){
-  let history=JSON.parse(localStorage.getItem("his")||"{}");
-  staff.forEach(p=>{if(!history[p])history[p]={c:0,s:0,h:0,m:0};});
-
-  let rot=[...staff];
-
-  for(let d=1; d<=30; d++){
-    let abs=(document.getElementById("a-"+d).value||"").toUpperCase().split(",");
-    let today=rot.filter(p=>!abs.includes(p));
-
-    while(today.length<6) today.push(rot[Math.floor(Math.random()*rot.length)]);
-
-    today.sort((a,b)=>{
-      let ta=history[a].c+history[a].s+history[a].h+history[a].m;
-      let tb=history[b].c+history[b].s+history[b].h+history[b].m;
-      return ta-tb;
-    });
-
-    let p=today.slice(0,6);
-
-    set(d,"c1",p[0]); history[p[0]].c++;
-    set(d,"c2",p[1]); history[p[1]].c++;
-    set(d,"s1",p[2]); history[p[2]].s++;
-    set(d,"s2",p[3]); history[p[3]].s++;
-    set(d,"h",p[4]); history[p[4]].h++;
-    set(d,"m",p[5]); history[p[5]].m++;
-
-    rot.push(rot.shift());
-  }
-
-  localStorage.setItem("his",JSON.stringify(history));
-  renderStats();
-}
-
-// ===== 写格子 =====
-function set(d,r,n){document.getElementById(r+"-"+d).innerText=n;}
-
-// ===== 统计 =====
-function renderStats(){
-  let s=document.getElementById("stats");
-  s.innerHTML="<tr><th>Name</th><th>C</th><th>S</th><th>H</th><th>M</th><th>Total</th></tr>";
-  let his=JSON.parse(localStorage.getItem("his")||"{}");
-
-  staff.forEach(p=>{
-    let d=his[p]||{c:0,s:0,h:0,m:0};
-    let t=d.c+d.s+d.h+d.m;
-    s.innerHTML+=`<tr><td>${p}</td><td>${d.c}</td><td>${d.s}</td><td>${d.h}</td><td>${d.m}</td><td>${t}</td></tr>`;
-  });
-}
-
-// ===== 保存缺勤 =====
-function saveAbs(){
-  let a={};
-  for(let d=1; d<=30; d++) a[d]=document.getElementById("a-"+d).value;
-  localStorage.setItem("abs",JSON.stringify(a));
-}
-
-// ===== 读取缺勤 =====
-function loadAbs(){
-  let a=JSON.parse(localStorage.getItem("abs")||"{}");
-  for(let d=1; d<=30; d++) if(a[d]) document.getElementById("a-"+d).value=a[d];
-}
-
-// ===== 清空 =====
-function clearAbs(){
-  localStorage.removeItem("abs");
-  localStorage.removeItem("his");
-  location.reload();
-}
-
-// ===== 启动 =====
-build();
-loadAbs();
-renderStats();
-
-</script>
 </body>
 </html>
